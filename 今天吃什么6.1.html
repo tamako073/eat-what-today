@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>今天吃什么？</title>
+<style>
+  body {
+    font-family: "Microsoft YaHei", sans-serif;
+    background-color: #e8ede7;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  h1 {
+    color: #6b7c74;
+    font-size: 8vw;
+    margin-bottom: 20px;
+    opacity: 0;
+    transform: scale(0.9);
+    animation: fadeInScale 1s ease-out forwards;
+    text-align: center;
+    padding: 0 10px;
+  }
+  @keyframes fadeInScale {
+    0% { opacity: 0; transform: scale(0.9); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  #step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 90vw;
+    max-width: 360px;
+  }
+  button {
+    position: relative;
+    overflow: hidden;
+    font-size: 5.5vw;
+    padding: 12px 20px;
+    margin: 10px 0;
+    cursor: pointer;
+    border-radius: 12px;
+    border: none;
+    background-color: #a8b5a2;
+    color: #fdfdfd;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    transition: background-color 0.3s ease;
+    text-align: center;
+    user-select: none;
+  }
+  button:active { background-color: #8f9f92; }
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    transform: scale(0);
+    animation: ripple 0.6s linear;
+    background-color: rgba(255, 255, 255, 0.5);
+  }
+  @keyframes ripple {
+    to { transform: scale(4); opacity: 0; }
+  }
+  .result {
+    margin-top: 15px;
+    font-size: 5vw;
+    font-weight: bold;
+    color: #555b56;
+    text-align: center;
+    background-color: transparent;
+    padding: 10px 15px;
+    border-radius: 10px;
+    max-width: 90vw;
+    word-break: break-word;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    user-select: none;
+  }
+  .show { opacity: 1 !important; }
+  .history {
+    margin-top: 10px;
+    font-size: 3.5vw;
+    color: #7a807a;
+    max-width: 90vw;
+    word-break: break-word;
+    line-height: 1.3em;
+    text-align: center;
+    user-select: none;
+  }
+
+  /* 电脑端字体稍微调小 */
+  @media screen and (min-width: 600px) {
+    h1 {
+      font-size: 48px;
+    }
+    button {
+      font-size: 18px;
+      max-width: 300px;
+    }
+    .result {
+      font-size: 20px;
+      max-width: 600px;
+    }
+    .history {
+      font-size: 14px;
+      max-width: 600px;
+    }
+  }
+
+</style>
+</head>
+<body>
+
+<h1>今天吃什么？</h1>
+<div id="step"></div>
+<div class="result" id="result"></div>
+<div class="history" id="history"></div>
+
+<script>
+  const canteens = [
+    { name: "颐一", dishes: ["麻辣烫", "基本伙", "基本伙", "基本伙", "基本伙", "炒饭", "豆乳冰淇淋", "冰糖葫芦", "苹果", "橘子", "香蕉", "随机水果", "面条"] },
+    { name: "颐二", dishes: ["叉烧饭", "烧鹅饭", "烤肉饭", "蛋包饭", "牛肉面", "鸡丝凉面", "麻辣香锅", "淮南牛肉汤", "饺子", "黄焖鸡", "滑蛋饭", "豆花牛肉盖饭", "小炒土豆片盖饭", "乱七八糟随便盖饭", "喝个饮料", "苹果", "橘子", "香蕉", "随机水果"] },
+    { name: "颐三", dishes: ["馄饨", "汉堡套餐", "油焖鸡", "随机盖饭", "麻辣香锅", "尝尝新品", "苹果", "橘子", "香蕉", "随机水果"] },
+    { name: "和一", dishes: ["基本伙", "馅饼", "肠粉", "基本伙", "基本伙", "基本伙", "基本伙", "土豆粉", "盖饭", "随便干锅", "锡纸肥牛", "苹果", "橘子", "香蕉", "随机水果"] },
+    { name: "和二", dishes: ["面条", "自选+粗粮", "自选+米饭", "自选+面食", "韩式拌饭", "汤粉", "麻辣烫", "尝尝新品", "苹果", "橘子", "香蕉", "随机水果"] }
+  ];
+
+  const takeout = {
+    "中餐": ["黄焖鸡", "健康炒菜", "新疆炒米粉", "潮汕牛肉饭", "麻辣烫", "翘脚牛肉"],
+    "西餐": ["麦麦（自取）", "KFC", "达美乐"],
+    "饮品甜点": ["喝杯果茶（记得少糖）", "喝杯果茶（记得少糖）","喝杯果茶（记得少糖）","水果捞", "鲜芋仙"]
+  };
+
+  let lastAction = null;
+  let lastIndex = null;
+
+  const historyData = {
+    randomCanteen: [],
+    pickCanteen: [],
+    takeout: []
+  };
+
+  function randomPick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function addHistory(type, text) {
+    const arr = historyData[type];
+    arr.unshift(text);
+    if(arr.length > 5) arr.pop();
+    showHistory(arr);
+  }
+
+  function showHistory(arr) {
+    const historyDiv = document.getElementById("history");
+    if(arr.length === 0) {
+      historyDiv.innerHTML = "";
+      return;
+    }
+    historyDiv.innerHTML = "最近5次结果：<br>" + arr.map(item => `- ${item}`).join("<br>");
+  }
+
+  function showMainMenu() {
+    lastAction = null;
+    lastIndex = null;
+    document.getElementById("result").classList.remove("show");
+    document.getElementById("result").innerText = "";
+    document.getElementById("history").innerHTML = "";
+    document.getElementById("step").innerHTML = `
+      <button onclick="chooseCanteen()">吃食堂</button>
+      <button onclick="chooseTakeout()">点外卖</button>
+    `;
+    addRippleEffect();
+  }
+
+  function chooseCanteen() {
+    lastAction = null;
+    lastIndex = null;
+    document.getElementById("result").classList.remove("show");
+    document.getElementById("result").innerText = "";
+    document.getElementById("history").innerHTML = "";
+    let html = `<button onclick="randomCanteen()">全随机</button><br>`;
+    canteens.forEach((c, idx) => {
+      html += `<button onclick="pickCanteen(${idx})">${c.name}</button><br>`;
+    });
+    html += `<button onclick="showMainMenu()">返回</button>`;
+    document.getElementById("step").innerHTML = html;
+    addRippleEffect();
+  }
+
+  function randomCanteen() {
+    lastAction = "randomCanteen";
+    lastIndex = null;
+    const chosenCanteen = randomPick(canteens);
+    const chosenDish = randomPick(chosenCanteen.dishes);
+    const text = `去【${chosenCanteen.name}】吃【${chosenDish}】`;
+    showResult(text);
+    addHistory("randomCanteen", text);
+  }
+
+  function pickCanteen(index) {
+    lastAction = "pickCanteen";
+    lastIndex = index;
+    const chosenCanteen = canteens[index];
+    const chosenDish = randomPick(chosenCanteen.dishes);
+    const text = `去【${chosenCanteen.name}】吃【${chosenDish}】`;
+    showResult(text);
+    addHistory("pickCanteen", text);
+  }
+
+  function chooseTakeout() {
+    lastAction = "takeout";
+    lastIndex = null;
+    rollTakeout();
+  }
+
+  function rollTakeout() {
+    const categories = Object.keys(takeout);
+    const chosenCategory = randomPick(categories);
+    const chosenDish = randomPick(takeout[chosenCategory]);
+    const text = `点外卖 → ${chosenCategory}：${chosenDish}`;
+    showResult(text, true);
+    addHistory("takeout", text);
+  }
+
+  function showResult(text, isTakeout = false) {
+    const resultDiv = document.getElementById("result");
+    resultDiv.innerText = text;
+    resultDiv.classList.add("show");
+
+    const stepDiv = document.getElementById("step");
+    stepDiv.innerHTML = `
+      <button onclick="rollAgain()">再来一次</button>
+      <button onclick="goBack(${isTakeout})">返回</button>
+    `;
+    addRippleEffect();
+  }
+
+  function goBack(isTakeout) {
+    if (isTakeout) {
+      showMainMenu();
+    } else {
+      chooseCanteen();
+    }
+  }
+
+  function rollAgain() {
+    if (lastAction === "randomCanteen") {
+      randomCanteen();
+    } else if (lastAction === "pickCanteen") {
+      pickCanteen(lastIndex);
+    } else if (lastAction === "takeout") {
+      rollTakeout();
+    }
+  }
+
+  function addRippleEffect() {
+    document.querySelectorAll('button').forEach(button => {
+      button.addEventListener('click', function (e) {
+        const ripple = document.createElement('span');
+        ripple.classList.add('ripple');
+        const rect = button.getBoundingClientRect();
+        ripple.style.left = `${e.clientX - rect.left}px`;
+        ripple.style.top = `${e.clientY - rect.top}px`;
+        button.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+      });
+    });
+  }
+
+  showMainMenu();
+</script>
+
+</body>
+</html>
